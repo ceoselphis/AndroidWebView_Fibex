@@ -1,0 +1,251 @@
+package com.oficina2.fibex_telecom;
+
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
+
+import android.app.Activity;
+import android.content.ClipData;
+import android.content.Intent;
+import android.content.res.Configuration;
+import android.graphics.Bitmap;
+import android.net.Uri;
+import android.os.Build;
+import android.os.Bundle;
+import android.os.Handler;
+import android.provider.MediaStore;
+import android.view.MotionEvent;
+import android.view.View;
+import android.webkit.CookieManager;
+import android.webkit.WebSettings;
+import android.webkit.WebView;
+import android.widget.LinearLayout;
+import android.widget.TextView;
+import android.widget.Toast;
+
+import com.airbnb.lottie.LottieAnimationView;
+import com.oficina2.fibex_telecom.controller.MyControl;
+import com.oficina2.fibex_telecom.controller.MyMethods;
+import com.oficina2.fibex_telecom.helper.MyHelper;
+import com.oficina2.fibex_telecom.helper.ChromeClient;
+import com.oficina2.fibex_telecom.helper.HelloWebViewClient;
+import com.oficina2.fibex_telecom.network.NetworkStateReceiver;
+
+import java.io.ByteArrayOutputStream;
+
+public class MainActivity extends AppCompatActivity implements NetworkStateReceiver.NetworkStateReceiverListener {
+
+    WebView webView;
+    LottieAnimationView progress_loading;
+    LinearLayout no_Internet;
+    TextView nonetTitle, nonetDescription;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+
+        // For Internet
+        MyMethods.startNetworkBroadcastReceiver(this);
+
+        // variable initialize
+        webView = findViewById(R.id.webView);
+        progress_loading = findViewById(R.id.progress_loading);
+        no_Internet = findViewById(R.id.No_Internet);
+        nonetTitle = findViewById(R.id.nonetTitle);
+        nonetDescription = findViewById(R.id.nonetDescription);
+
+        // webview settings
+        WebSettings webSettings = webView.getSettings();
+        webSettings.setUserAgentString(MyControl.USER_AGENT);
+        webSettings.setLoadsImagesAutomatically(true);
+        webSettings.setJavaScriptEnabled(true);
+        webSettings.setAllowFileAccess(true);
+        webSettings.setLoadWithOverviewMode(true);
+        webSettings.setUseWideViewPort(true);
+        webSettings.setDomStorageEnabled(true);
+        webSettings.setMediaPlaybackRequiresUserGesture(false);
+        webSettings.setAllowContentAccess(true);
+        webSettings.setSaveFormData(true);
+        webSettings.setRenderPriority(WebSettings.RenderPriority.HIGH);
+        webSettings.setCacheMode(WebSettings.LOAD_NO_CACHE);
+        webSettings.setLayoutAlgorithm(WebSettings.LayoutAlgorithm.NARROW_COLUMNS);
+        webSettings.setEnableSmoothTransition(true);
+        webSettings.setBlockNetworkLoads(false);
+        webSettings.setJavaScriptCanOpenWindowsAutomatically(true);
+
+        // clear old cache/history
+        webView.clearCache(true);
+        webView.clearHistory();
+
+        webView.setWebChromeClient(new ChromeClient(MainActivity.this));
+        webView.setWebViewClient(new HelloWebViewClient(MainActivity.this));
+        webView.setScrollBarStyle(View.SCROLLBARS_INSIDE_OVERLAY);
+
+
+        // HelloWebViewClient
+        new HelloWebViewClient(new MyHelper() {
+            @Override
+            public void loading() { }
+
+            @Override
+            public void finishLoading() { }
+
+            @Override
+            public void webGoBack() {
+                webView.goBack();
+            }
+
+            @Override
+            public void webLoadUrl(String url) {
+                webView.loadUrl(url);
+            }
+
+            @Override
+            public void errorLoading() {
+                if (MyControl.NETWORK_AVAILABLE) {
+                    no_Internet.setVisibility(View.VISIBLE);
+                    nonetTitle.setText("Website Load Failed");
+                    nonetDescription.setText("Error Reason:\n" + MyControl.LOAD_ERROR_REASON);
+                }
+            }
+        });
+
+        // Handle WebLoading
+        new ChromeClient(new MyHelper() {
+            @Override
+            public void loading() {
+                progress_loading.setVisibility(View.VISIBLE);
+            }
+
+            @Override
+            public void finishLoading() {
+                progress_loading.setVisibility(View.GONE);
+            }
+
+            @Override
+            public void webGoBack() { }
+
+            @Override
+            public void webLoadUrl(String url) { }
+
+            @Override
+            public void errorLoading() { }
+        });
+
+        // load website
+        webView.loadUrl(getString(R.string.Website_Link));
+    }
+
+    @Override
+    public void networkAvailable() {
+        MyControl.NETWORK_AVAILABLE = true;
+
+        if (!MyControl.FAILED_FOR_OTHER_REASON)
+            no_Internet.setVisibility(View.GONE);
+        else
+            no_Internet.setVisibility(View.VISIBLE);
+    }
+
+    @Override
+    public void networkUnavailable() {
+        MyControl.NETWORK_AVAILABLE = false;
+        no_Internet.setVisibility(View.VISIBLE);
+        nonetTitle.setText("No Internet");
+        nonetDescription.setText("Please Check Internet Connection and Try Again..");
+    }
+
+    @Override
+    protected void onPause() {
+        MyMethods.unregisterNetworkBroadcastReceiver(this);
+        super.onPause();
+    }
+
+    @Override
+    protected void onResume() {
+        MyMethods.registerNetworkBroadcastReceiver(this);
+        super.onResume();
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent intent) {
+        super.onActivityResult(requestCode, resultCode, intent);
+        if (Build.VERSION.SDK_INT >= 21) {
+            Uri[] results = null;
+
+            if (resultCode == Activity.RESULT_CANCELED) {
+                MyControl.file_path.onReceiveValue(null);
+                return;
+            }
+
+            if (resultCode == Activity.RESULT_OK) {
+                if (null == MyControl.file_path) {
+                    return;
+                }
+                ClipData clipData;
+                String stringData;
+
+                try {
+                    clipData = intent.getClipData();
+                    stringData = intent.getDataString();
+                } catch (Exception e) {
+                    clipData = null;
+                    stringData = null;
+                }
+                if (clipData == null && stringData == null && MyControl.cam_file_data != null) {
+                    results = new Uri[]{Uri.parse(MyControl.cam_file_data)};
+                } else {
+                    if (clipData != null) {
+                        final int numSelectedFiles = clipData.getItemCount();
+                        results = new Uri[numSelectedFiles];
+                        for (int i = 0; i < clipData.getItemCount(); i++) {
+                            results[i] = clipData.getItemAt(i).getUri();
+                        }
+                    } else {
+                        try {
+                            Bitmap cam_photo = (Bitmap) intent.getExtras().get("data");
+                            ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+                            cam_photo.compress(Bitmap.CompressFormat.JPEG, 100, bytes);
+                            stringData = MediaStore.Images.Media.insertImage(this.getContentResolver(), cam_photo, null, null);
+                        } catch (Exception ignored) { }
+
+                        results = new Uri[]{Uri.parse(stringData)};
+                    }
+                }
+            }
+
+            MyControl.file_path.onReceiveValue(results);
+            MyControl.file_path = null;
+        } else {
+            if (requestCode == MyControl.file_req_code) {
+                if (null == MyControl.file_data) return;
+                Uri result = intent == null || resultCode != RESULT_OK ? null : intent.getData();
+                MyControl.file_data.onReceiveValue(result);
+                MyControl.file_data = null;
+            }
+        }
+    }
+
+    @Override
+    public void onConfigurationChanged(Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
+    }
+
+    private static final int TIME_INTERVAL = 2000;
+    private long mBackPressed;
+
+    @Override
+    public void onBackPressed() {
+        if (!webView.canGoBack()) {
+            if (mBackPressed + TIME_INTERVAL > System.currentTimeMillis()) {
+                finishAndRemoveTask();
+            } else {
+                Toast.makeText(getBaseContext(), "Press again to exit",
+                        Toast.LENGTH_SHORT).show();
+            }
+            mBackPressed = System.currentTimeMillis();
+        } else {
+            webView.goBack();
+        }
+    }
+
+} // Public Class End Here ==========================

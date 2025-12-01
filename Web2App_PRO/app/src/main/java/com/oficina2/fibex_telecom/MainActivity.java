@@ -29,6 +29,7 @@ import com.oficina2.fibex_telecom.helper.MyHelper;
 import com.oficina2.fibex_telecom.helper.ChromeClient;
 import com.oficina2.fibex_telecom.helper.HelloWebViewClient;
 import com.oficina2.fibex_telecom.network.NetworkStateReceiver;
+import com.onesignal.OneSignal;
 
 import java.io.ByteArrayOutputStream;
 
@@ -54,6 +55,42 @@ public class MainActivity extends AppCompatActivity implements NetworkStateRecei
         nonetTitle = findViewById(R.id.nonetTitle);
         nonetDescription = findViewById(R.id.nonetDescription);
 
+        // IMPORTANTE: Ocultar el WebView completamente al inicio
+        // Esto evita que CUALQUIER cosa se sobreponga al diálogo de permisos
+        webView.setVisibility(View.GONE);
+        
+        // Mostrar el loading mientras esperamos la respuesta del usuario
+        progress_loading.setVisibility(View.VISIBLE);
+
+        // IMPORTANTE: Solicitar permisos de notificaciones ANTES de configurar el WebView
+        // Esto evita que el WebView se sobreponga al diálogo de permisos
+        requestNotificationPermissions();
+    }
+
+    /**
+     * Solicita permisos de notificaciones y luego inicializa el WebView
+     */
+    private void requestNotificationPermissions() {
+        OneSignal.getNotifications().requestPermission(true, com.onesignal.Continue.with(result -> {
+            // Una vez que el usuario responde (acepta o rechaza), inicializamos el WebView
+            // Ejecutar en el hilo principal para asegurar que la UI se actualice correctamente
+            runOnUiThread(() -> {
+                // Ocultar el loading
+                progress_loading.setVisibility(View.GONE);
+                
+                // Mostrar el WebView
+                webView.setVisibility(View.VISIBLE);
+                
+                // Inicializar el WebView
+                initializeWebView();
+            });
+        }));
+    }
+
+    /**
+     * Inicializa y configura el WebView
+     */
+    private void initializeWebView() {
         // webview settings
         WebSettings webSettings = webView.getSettings();
         webSettings.setUserAgentString(MyControl.USER_AGENT);
@@ -132,8 +169,15 @@ public class MainActivity extends AppCompatActivity implements NetworkStateRecei
             public void errorLoading() { }
         });
 
-        // load website
-        webView.loadUrl(getString(R.string.Website_Link));
+        // Check if opened from notification with custom URL
+        String notificationUrl = getIntent().getStringExtra("notification_url");
+        if (notificationUrl != null && !notificationUrl.isEmpty()) {
+            // Load URL from notification
+            webView.loadUrl(notificationUrl);
+        } else {
+            // Load default website
+            webView.loadUrl(getString(R.string.Website_Link));
+        }
     }
 
     @Override
@@ -237,6 +281,7 @@ public class MainActivity extends AppCompatActivity implements NetworkStateRecei
     public void onBackPressed() {
         if (!webView.canGoBack()) {
             if (mBackPressed + TIME_INTERVAL > System.currentTimeMillis()) {
+                super.onBackPressed();
                 finishAndRemoveTask();
             } else {
                 Toast.makeText(getBaseContext(), "Press again to exit",

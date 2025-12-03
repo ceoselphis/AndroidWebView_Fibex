@@ -1,6 +1,0 @@
-Fibex Telecom app doc
-+++++++++++++++++++++
-
-Key store password: 1234567890
-Key alias: key0
-key password: 1234567890

@@ -58,33 +58,6 @@ Esta app incluye una integración completa con **OneSignal** para notificaciones
 - ✅ Gestión de tags para segmentación de usuarios
 - ✅ Logging detallado para debugging
 
-### 📚 Documentación Completa
-
-Para una guía completa sobre cómo usar la integración de OneSignal, consulta:
-
-**[📖 ONESIGNAL_INTEGRATION_GUIDE.md](./ONESIGNAL_INTEGRATION_GUIDE.md)**
-
-Esta guía incluye:
-- Verificación de conectividad
-- Uso desde JavaScript (oficina2.fibextelecom.net)
-- Flujo recomendado de implementación
-- Ejemplos de código completos
-- Debugging y troubleshooting
-- Cómo enviar notificaciones desde tu backend
-
-### 🧪 Página de Prueba
-
-Para probar la integración de OneSignal, puedes usar el archivo de prueba incluido:
-
-**[🔬 onesignal-test.html](./onesignal-test.html)**
-
-Esta página te permite:
-- Ver información del dispositivo (OneSignal ID, External ID, estado de suscripción)
-- Asignar y remover External IDs
-- Gestionar tags
-- Simular login/logout
-- Ver logs de actividad en tiempo real
-
 ### 🚀 Inicio Rápido
 
 Desde tu aplicación web (oficina2.fibextelecom.net), puedes interactuar con OneSignal así:

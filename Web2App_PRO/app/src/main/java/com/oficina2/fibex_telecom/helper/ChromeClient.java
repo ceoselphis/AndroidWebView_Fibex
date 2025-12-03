@@ -100,163 +100,142 @@ public class ChromeClient extends WebChromeClient {
     /*-- handling input[type="file"] requests for android API 21+ --*/
     public boolean onShowFileChooser(WebView webView, ValueCallback<Uri[]> filePathCallback, FileChooserParams fileChooserParams) {
 
+        Log.d(TAG, "onShowFileChooser called");
+        
         if(file_permission() && Build.VERSION.SDK_INT >= 21) {
+            
+            // Cancel any existing file path callback
+            if (MyControl.file_path != null) {
+                MyControl.file_path.onReceiveValue(null);
+            }
+            
             MyControl.file_path = filePathCallback;
             Intent takePictureIntent = null;
-            Intent takeVideoIntent = null;
 
-            boolean includeVideo = false;
-            boolean includePhoto = false;
+            // Solo manejar imágenes
+            boolean includePhoto = true;
 
-            /*-- checking the accept parameter to determine which intent(s) to include --*/
-
-            paramCheck:
-            for (String acceptTypes : fileChooserParams.getAcceptTypes()) {
-                String[] splitTypes = acceptTypes.split(", ?+");
-                /*-- although it's an array, it still seems to be the whole value; split it out into chunks so that we can detect multiple values --*/
-                for (String acceptType : splitTypes) {
-                    switch (acceptType) {
-                        case "*/*":
-                            includePhoto = true;
-                            includeVideo = true;
-                            break paramCheck;
-                        case "image/*":
-                            includePhoto = true;
-                            break;
-                        case "video/*":
-                            includeVideo = true;
-                            break;
-                    }
+            // Intent para tomar foto con la cámara
+            takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+            if (takePictureIntent.resolveActivity(activity.getPackageManager()) != null) {
+                File photoFile = null;
+                try {
+                    photoFile = create_image();
+                    takePictureIntent.putExtra("PhotoPath", MyControl.cam_file_data);
+                } catch (IOException ex) {
+                    Log.e(TAG, "Image file creation failed", ex);
                 }
-            }
-
-            if (fileChooserParams.getAcceptTypes().length == 0) {
-
-                /*-- no `accept` parameter was specified, allow both photo and video --*/
-
-                includePhoto = true;
-                includeVideo = true;
-            }
-
-            if (includePhoto) {
-                takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
-                if (takePictureIntent.resolveActivity(activity.getPackageManager()) != null) {
-                    File photoFile = null;
-                    try {
-                        photoFile = create_image();
-                        takePictureIntent.putExtra("PhotoPath", MyControl.cam_file_data);
-                    } catch (IOException ex) {
-                        Log.e(TAG, "Image file creation failed", ex);
-                    }
-                    if (photoFile != null) {
-                        MyControl.cam_file_data = "file:" + photoFile.getAbsolutePath();
-                        takePictureIntent.putExtra(MediaStore.EXTRA_OUTPUT, Uri.fromFile(photoFile));
+                if (photoFile != null) {
+                    MyControl.cam_file_data = "file:" + photoFile.getAbsolutePath();
+                    
+                    // Use FileProvider for Android 7.0+
+                    Uri photoURI;
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                        photoURI = androidx.core.content.FileProvider.getUriForFile(
+                            activity,
+                            activity.getPackageName() + ".fileprovider",
+                            photoFile
+                        );
                     } else {
-                        MyControl.cam_file_data = null;
-                        takePictureIntent = null;
+                        photoURI = Uri.fromFile(photoFile);
                     }
+                    
+                    takePictureIntent.putExtra(MediaStore.EXTRA_OUTPUT, photoURI);
+                    takePictureIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    takePictureIntent.addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+                } else {
+                    MyControl.cam_file_data = null;
+                    takePictureIntent = null;
                 }
             }
 
-            if (includeVideo) {
-                takeVideoIntent = new Intent(MediaStore.ACTION_VIDEO_CAPTURE);
-                if (takeVideoIntent.resolveActivity(activity.getPackageManager()) != null) {
-                    File videoFile = null;
-                    try {
-                        videoFile = create_video();
-                    } catch (IOException ex) {
-                        Log.e(TAG, "Video file creation failed", ex);
-                    }
-                    if (videoFile != null) {
-                        MyControl.cam_file_data = "file:" + videoFile.getAbsolutePath();
-                        takeVideoIntent.putExtra(MediaStore.EXTRA_OUTPUT, Uri.fromFile(videoFile));
-                    } else {
-                        MyControl.cam_file_data = null;
-                        takeVideoIntent = null;
-                    }
-                }
-            }
-
+            // Intent para seleccionar imagen de la galería
             Intent contentSelectionIntent = new Intent(Intent.ACTION_GET_CONTENT);
             contentSelectionIntent.addCategory(Intent.CATEGORY_OPENABLE);
-            contentSelectionIntent.setType(MyControl.file_type);
+            contentSelectionIntent.setType("image/*"); // Solo imágenes
+            
+            // Allow multiple file selection
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR2) {
+                contentSelectionIntent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
+            }
 
-
+            // Preparar los intents adicionales (cámara)
             Intent[] intentArray;
-            if (takePictureIntent != null && takeVideoIntent != null) {
-                intentArray = new Intent[]{takePictureIntent, takeVideoIntent};
-            } else if (takePictureIntent != null) {
+            if (takePictureIntent != null) {
                 intentArray = new Intent[]{takePictureIntent};
-            } else if (takeVideoIntent != null) {
-                intentArray = new Intent[]{takeVideoIntent};
             } else {
                 intentArray = new Intent[0];
             }
 
             Intent chooserIntent = new Intent(Intent.ACTION_CHOOSER);
             chooserIntent.putExtra(Intent.EXTRA_INTENT, contentSelectionIntent);
-            chooserIntent.putExtra(Intent.EXTRA_TITLE, "File chooser");
+            chooserIntent.putExtra(Intent.EXTRA_TITLE, "Seleccionar imagen");
             chooserIntent.putExtra(Intent.EXTRA_INITIAL_INTENTS, intentArray);
-            activity.startActivityForResult(chooserIntent, MyControl.file_req_code);
+            
+            try {
+                activity.startActivityForResult(chooserIntent, MyControl.file_req_code);
+                Log.d(TAG, "File chooser started successfully");
+            } catch (Exception e) {
+                Log.e(TAG, "Error starting file chooser", e);
+                MyControl.file_path = null;
+                return false;
+            }
+            
             return true;
         } else {
+            Log.w(TAG, "File permission not granted or API level < 21");
             return false;
         }
     }
 
     public boolean file_permission(){
 
+        // Android 13+ (API 33+) - Solo imágenes
+        if (Build.VERSION.SDK_INT >= 33) {
 
-        /*
-        if(Build.VERSION.SDK_INT >=23 && (ContextCompat.checkSelfPermission(activity, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED || ContextCompat.checkSelfPermission(activity, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED)) {
-            ActivityCompat.requestPermissions(activity, new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE, Manifest.permission.CAMERA}, 1);
-            return false;
-        }else{
+            boolean hasMediaImages = ContextCompat.checkSelfPermission(activity,
+                    Manifest.permission.READ_MEDIA_IMAGES) == PackageManager.PERMISSION_GRANTED;
+            boolean hasCamera = ContextCompat.checkSelfPermission(activity,
+                    Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED;
+
+            if (!hasMediaImages || !hasCamera) {
+                ActivityCompat.requestPermissions(
+                        activity, new String[]{
+                                Manifest.permission.READ_MEDIA_IMAGES,
+                                Manifest.permission.CAMERA
+                        }, 1);
+                Log.v("WebBrowser", "Permission Requested (Android 13+) - Solo imágenes");
+                return false;
+            } else {
+                return true;
+            }
+
+        }
+        // Android 6.0 - 12 (API 23-32)
+        else if (Build.VERSION.SDK_INT >= 23) {
+
+            boolean hasStorage = ContextCompat.checkSelfPermission(activity,
+                    Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED;
+            boolean hasCamera = ContextCompat.checkSelfPermission(activity,
+                    Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED;
+
+            if (!hasStorage || !hasCamera) {
+                ActivityCompat.requestPermissions(
+                        activity, new String[]{
+                                Manifest.permission.WRITE_EXTERNAL_STORAGE,
+                                Manifest.permission.CAMERA
+                        }, 1);
+                Log.v("WebBrowser", "Permission Requested (Android 6-12)");
+                return false;
+            } else {
+                return true;
+            }
+
+        }
+        // Android 5.x and below
+        else {
             return true;
         }
-         */
-
-
-        if (Build.VERSION.SDK_INT >=33 ){
-
-            if(ContextCompat.checkSelfPermission(activity,
-                    Manifest.permission.READ_MEDIA_IMAGES) != PackageManager.PERMISSION_GRANTED
-                    &&
-                    ContextCompat.checkSelfPermission(activity,
-                            Manifest.permission.READ_MEDIA_AUDIO) != PackageManager.PERMISSION_GRANTED
-                    &&
-                    ContextCompat.checkSelfPermission(activity,
-                            Manifest.permission.READ_MEDIA_VIDEO) != PackageManager.PERMISSION_GRANTED
-            ) {
-
-                ActivityCompat.requestPermissions(
-                        activity, new String[]{Manifest.permission.READ_MEDIA_IMAGES,
-                                Manifest.permission.READ_MEDIA_AUDIO, Manifest.permission.READ_MEDIA_VIDEO
-                        }, 1);
-                Log.v("WebBrowser", "Permission Requested..");
-                return false;
-            } else return true;
-
-        }
-
-
-
-
-
-        else if(Build.VERSION.SDK_INT >=23){
-
-            if(ContextCompat.checkSelfPermission(activity,
-                    Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED ) {
-                ActivityCompat.requestPermissions(
-                        activity, new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE }, 1);
-                Log.v("WebBrowser", "Permission Requested..");
-                return false;
-            }else return true;
-
-        }
-
-        else return true;
-
 
     }
 
@@ -266,14 +245,5 @@ public class ChromeClient extends WebChromeClient {
         File storageDir = activity.getExternalFilesDir(Environment.DIRECTORY_PICTURES);
         return File.createTempFile(imageFileName,".jpg",storageDir);
     }
-
-    private File create_video() throws IOException {
-        @SuppressLint("SimpleDateFormat")
-        String file_name    = new SimpleDateFormat("yyyy_mm_ss").format(new Date());
-        String new_name     = "file_"+file_name+"_";
-        File sd_directory   = activity.getExternalFilesDir(Environment.DIRECTORY_PICTURES);
-        return File.createTempFile(new_name, ".3gp", sd_directory);
-    }
-
 
 } // ChromeClient End Here =============

@@ -68,23 +68,93 @@ public class MainActivity extends AppCompatActivity implements NetworkStateRecei
     }
 
     /**
-     * Solicita permisos de notificaciones y luego inicializa el WebView
+     * Solicita permisos de notificaciones y luego permisos de archivos
      */
     private void requestNotificationPermissions() {
         OneSignal.getNotifications().requestPermission(true, com.onesignal.Continue.with(result -> {
-            // Una vez que el usuario responde (acepta o rechaza), inicializamos el WebView
-            // Ejecutar en el hilo principal para asegurar que la UI se actualice correctamente
+            // Una vez que el usuario responde al permiso de notificaciones,
+            // solicitamos los permisos de archivos/imágenes
             runOnUiThread(() -> {
-                // Ocultar el loading
-                progress_loading.setVisibility(View.GONE);
-                
-                // Mostrar el WebView
-                webView.setVisibility(View.VISIBLE);
-                
-                // Inicializar el WebView
-                initializeWebView();
+                requestFilePermissions();
             });
         }));
+    }
+
+    /**
+     * Solicita permisos de archivos/imágenes y luego inicializa el WebView
+     */
+    private void requestFilePermissions() {
+        if (android.os.Build.VERSION.SDK_INT >= 33) {
+            // Android 13+ (API 33+) - Solo solicitar READ_MEDIA_IMAGES
+            if (androidx.core.content.ContextCompat.checkSelfPermission(this,
+                    android.Manifest.permission.READ_MEDIA_IMAGES) != android.content.pm.PackageManager.PERMISSION_GRANTED ||
+                androidx.core.content.ContextCompat.checkSelfPermission(this,
+                    android.Manifest.permission.CAMERA) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                
+                androidx.core.app.ActivityCompat.requestPermissions(
+                    this,
+                    new String[]{
+                        android.Manifest.permission.READ_MEDIA_IMAGES,
+                        android.Manifest.permission.CAMERA
+                    },
+                    100
+                );
+            } else {
+                // Permisos ya otorgados, inicializar WebView
+                initializeWebViewAfterPermissions();
+            }
+        } else if (android.os.Build.VERSION.SDK_INT >= 23) {
+            // Android 6.0 - 12 (API 23-32)
+            if (androidx.core.content.ContextCompat.checkSelfPermission(this,
+                    android.Manifest.permission.WRITE_EXTERNAL_STORAGE) != android.content.pm.PackageManager.PERMISSION_GRANTED ||
+                androidx.core.content.ContextCompat.checkSelfPermission(this,
+                    android.Manifest.permission.CAMERA) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                
+                androidx.core.app.ActivityCompat.requestPermissions(
+                    this,
+                    new String[]{
+                        android.Manifest.permission.WRITE_EXTERNAL_STORAGE,
+                        android.Manifest.permission.READ_EXTERNAL_STORAGE,
+                        android.Manifest.permission.CAMERA
+                    },
+                    100
+                );
+            } else {
+                // Permisos ya otorgados, inicializar WebView
+                initializeWebViewAfterPermissions();
+            }
+        } else {
+            // Android 5.x y anteriores - No se requieren permisos en tiempo de ejecución
+            initializeWebViewAfterPermissions();
+        }
+    }
+
+    /**
+     * Callback para manejar la respuesta de los permisos
+     */
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        
+        if (requestCode == 100) {
+            // Los permisos fueron respondidos (aceptados o rechazados)
+            // Inicializamos el WebView de todas formas
+            initializeWebViewAfterPermissions();
+        }
+    }
+
+    /**
+     * Inicializa el WebView después de solicitar todos los permisos
+     */
+    private void initializeWebViewAfterPermissions() {
+        // Ocultar el loading
+        progress_loading.setVisibility(View.GONE);
+        
+        // Mostrar el WebView
+        webView.setVisibility(View.VISIBLE);
+        
+        // Inicializar el WebView
+        initializeWebView();
     }
 
     /**
@@ -117,6 +187,15 @@ public class MainActivity extends AppCompatActivity implements NetworkStateRecei
         webView.setWebChromeClient(new ChromeClient(MainActivity.this));
         webView.setWebViewClient(new HelloWebViewClient(MainActivity.this));
         webView.setScrollBarStyle(View.SCROLLBARS_INSIDE_OVERLAY);
+
+        // ============================================================
+        // AGREGAR ONESIGNAL BRIDGE PARA COMUNICACIÓN CON IONIC ANGULAR
+        // ============================================================
+        // Este puente permite que tu aplicación Ionic Angular acceda a OneSignal
+        // desde JavaScript usando: window.OneSignalBridge.metodo()
+        webView.addJavascriptInterface(new com.oficina2.fibex_telecom.helper.OneSignalBridge(), "OneSignalBridge");
+        android.util.Log.d("MainActivity", "✅ OneSignalBridge agregado al WebView");
+
 
 
         // HelloWebViewClient

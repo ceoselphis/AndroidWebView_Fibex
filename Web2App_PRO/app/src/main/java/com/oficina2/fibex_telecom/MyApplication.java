@@ -18,47 +18,43 @@ public class MyApplication extends Application {
     public void onCreate() {
         super.onCreate();
 
+        Log.d(TAG, "═══════════════════════════════════════════════");
+        Log.d(TAG, "🚀 INICIALIZANDO ONESIGNAL");
+        Log.d(TAG, "═══════════════════════════════════════════════");
+
         // Verbose Logging set to help debug issues, remove before releasing your app.
-        // En producción, cambia a LogLevel.WARN o LogLevel.ERROR
         OneSignal.getDebug().setLogLevel(LogLevel.VERBOSE);
 
         // OneSignal Initialization
         OneSignal.initWithContext(this, ONESIGNAL_APP_ID);
+        Log.d(TAG, "✅ OneSignal inicializado con App ID: " + ONESIGNAL_APP_ID);
 
         // NO solicitamos permisos aquí - se solicitarán en MainActivity
         // para evitar que el WebView se sobreponga al diálogo de permisos
 
-
         // Listener para cuando se recibe una notificación (la app está abierta)
         OneSignal.getNotifications().addForegroundLifecycleListener(event -> {
-            Log.d(TAG, "Notificación recibida en primer plano: " + event.getNotification().getTitle());
-            // Aquí puedes personalizar el comportamiento cuando se recibe una notificación
-            // mientras la app está abierta
+            Log.d(TAG, "📬 Notificación recibida en primer plano: " + event.getNotification().getTitle());
         });
 
         // Listener para cuando el usuario hace clic en una notificación
         OneSignal.getNotifications().addClickListener(event -> {
-            Log.d(TAG, "Usuario hizo clic en la notificación");
+            Log.d(TAG, "👆 Usuario hizo clic en la notificación");
             
-            // Obtener datos de la notificación
             String title = event.getNotification().getTitle();
             String body = event.getNotification().getBody();
             
             Log.d(TAG, "Título: " + title);
             Log.d(TAG, "Mensaje: " + body);
             
-            // Si la notificación tiene datos adicionales
             JSONObject additionalData = event.getNotification().getAdditionalData();
             if (additionalData != null) {
                 Log.d(TAG, "Datos adicionales: " + additionalData.toString());
                 
-                // Ejemplo: Si enviaste una URL en los datos adicionales
-                // puedes abrirla aquí
                 if (additionalData.has("url")) {
                     try {
                         String url = additionalData.getString("url");
                         Log.d(TAG, "URL recibida: " + url);
-                        // Aquí puedes abrir la URL en tu WebView
                     } catch (Exception e) {
                         Log.e(TAG, "Error al obtener URL: " + e.getMessage());
                     }
@@ -66,21 +62,32 @@ public class MyApplication extends Application {
             }
         });
 
-        // Obtener el Player ID (ID único del dispositivo en OneSignal)
-        // Útil para enviar notificaciones a dispositivos específicos
-        String playerId = OneSignal.getUser().getOnesignalId();
-        if (playerId != null) {
-            Log.d(TAG, "OneSignal Player ID: " + playerId);
-            // Puedes guardar este ID en tu servidor para enviar notificaciones personalizadas
-        }
+        // Obtener Player ID de forma segura con reintentos
+        new android.os.Handler().postDelayed(() -> {
+            String playerId = OneSignal.getUser().getOnesignalId();
+            if (playerId != null && !playerId.isEmpty()) {
+                Log.d(TAG, "═══════════════════════════════════════════════");
+                Log.d(TAG, "🎯 ONESIGNAL PLAYER ID OBTENIDO");
+                Log.d(TAG, "🆔 Player ID: " + playerId);
+                Log.d(TAG, "═══════════════════════════════════════════════");
+            } else {
+                Log.w(TAG, "⚠️ Player ID aún no disponible. Reintentando...");
+                new android.os.Handler().postDelayed(() -> {
+                    String retryPlayerId = OneSignal.getUser().getOnesignalId();
+                    if (retryPlayerId != null && !retryPlayerId.isEmpty()) {
+                        Log.d(TAG, "✅ Player ID obtenido: " + retryPlayerId);
+                    } else {
+                        Log.e(TAG, "❌ No se pudo obtener el Player ID");
+                    }
+                }, 2000);
+            }
+        }, 1000);
 
-        // Agregar tags al usuario (útil para segmentación)
-        // Ejemplo: Puedes etiquetar usuarios por tipo de plan, ciudad, etc.
-        OneSignal.getUser().addTag("app_version", "2.0");
-        OneSignal.getUser().addTag("platform", "android");
+        // Agregar tags iniciales
+        // OneSignal.getUser().addTag("app_version", "2.0");
+        // OneSignal.getUser().addTag("platform", "android");
         
-        // Ejemplo de cómo agregar más tags
-        // OneSignal.getUser().addTag("plan_type", "premium");
-        // OneSignal.getUser().addTag("city", "Caracas");
+        Log.d(TAG, "🏷️ Tags iniciales agregados");
+        Log.d(TAG, "═══════════════════════════════════════════════");
     }
 }

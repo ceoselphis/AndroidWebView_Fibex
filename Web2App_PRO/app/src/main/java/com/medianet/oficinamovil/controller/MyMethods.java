@@ -1,4 +1,4 @@
-package com.oficina2.fibex_telecom.controller;
+package com.medianet.oficinamovil.controller;
 
 import android.app.Activity;
 import android.content.Context;
@@ -6,8 +6,8 @@ import android.content.IntentFilter;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 
-import com.oficina2.fibex_telecom.R;
-import com.oficina2.fibex_telecom.network.NetworkStateReceiver;
+import com.medianet.oficinamovil.R;
+import com.medianet.oficinamovil.network.NetworkStateReceiver;
 
 public class MyMethods {
 

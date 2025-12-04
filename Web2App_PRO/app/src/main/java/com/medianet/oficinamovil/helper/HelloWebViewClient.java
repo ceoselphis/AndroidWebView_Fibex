@@ -1,4 +1,4 @@
-package com.oficina2.fibex_telecom.helper;
+package com.medianet.oficinamovil.helper;
 
 import android.app.Activity;
 import android.content.Intent;
@@ -8,8 +8,8 @@ import android.net.Uri;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
-import com.oficina2.fibex_telecom.controller.MyControl;
-import com.oficina2.fibex_telecom.controller.MyMethods;
+import com.medianet.oficinamovil.controller.MyControl;
+import com.medianet.oficinamovil.controller.MyMethods;
 
 import java.net.URISyntaxException;
 

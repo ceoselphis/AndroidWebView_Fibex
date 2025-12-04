@@ -1,4 +1,4 @@
-package com.oficina2.fibex_telecom.helper;
+package com.medianet.oficinamovil.helper;
 
 import android.util.Log;
 import android.webkit.JavascriptInterface;

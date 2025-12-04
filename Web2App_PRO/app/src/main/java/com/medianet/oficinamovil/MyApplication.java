@@ -1,4 +1,4 @@
-package com.oficina2.fibex_telecom;
+package com.medianet.oficinamovil;
 
 import android.app.Application;
 import android.util.Log;

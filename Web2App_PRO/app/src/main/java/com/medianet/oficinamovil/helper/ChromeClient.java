@@ -1,4 +1,4 @@
-package com.oficina2.fibex_telecom.helper;
+package com.medianet.oficinamovil.helper;
 
 import static android.content.ContentValues.TAG;
 
@@ -23,7 +23,7 @@ import android.widget.FrameLayout;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
-import com.oficina2.fibex_telecom.controller.MyControl;
+import com.medianet.oficinamovil.controller.MyControl;
 
 import java.io.File;
 import java.io.IOException;

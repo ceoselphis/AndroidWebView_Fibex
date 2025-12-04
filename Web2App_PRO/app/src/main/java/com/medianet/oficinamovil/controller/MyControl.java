@@ -1,4 +1,4 @@
-package com.oficina2.fibex_telecom.controller;
+package com.medianet.oficinamovil.controller;
 
 
 import android.net.Uri;

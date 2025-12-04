@@ -1,4 +1,4 @@
-package com.oficina2.fibex_telecom;
+package com.medianet.oficinamovil;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
@@ -23,12 +23,12 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.airbnb.lottie.LottieAnimationView;
-import com.oficina2.fibex_telecom.controller.MyControl;
-import com.oficina2.fibex_telecom.controller.MyMethods;
-import com.oficina2.fibex_telecom.helper.MyHelper;
-import com.oficina2.fibex_telecom.helper.ChromeClient;
-import com.oficina2.fibex_telecom.helper.HelloWebViewClient;
-import com.oficina2.fibex_telecom.network.NetworkStateReceiver;
+import com.medianet.oficinamovil.controller.MyControl;
+import com.medianet.oficinamovil.controller.MyMethods;
+import com.medianet.oficinamovil.helper.MyHelper;
+import com.medianet.oficinamovil.helper.ChromeClient;
+import com.medianet.oficinamovil.helper.HelloWebViewClient;
+import com.medianet.oficinamovil.network.NetworkStateReceiver;
 import com.onesignal.OneSignal;
 
 import java.io.ByteArrayOutputStream;
@@ -193,7 +193,7 @@ public class MainActivity extends AppCompatActivity implements NetworkStateRecei
         // ============================================================
         // Este puente permite que tu aplicación Ionic Angular acceda a OneSignal
         // desde JavaScript usando: window.OneSignalBridge.metodo()
-        webView.addJavascriptInterface(new com.oficina2.fibex_telecom.helper.OneSignalBridge(), "OneSignalBridge");
+        webView.addJavascriptInterface(new com.medianet.oficinamovil.helper.OneSignalBridge(), "OneSignalBridge");
         android.util.Log.d("MainActivity", "✅ OneSignalBridge agregado al WebView");
 
 

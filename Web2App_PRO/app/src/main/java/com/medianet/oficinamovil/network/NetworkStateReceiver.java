@@ -1,4 +1,4 @@
-package com.oficina2.fibex_telecom.network;
+package com.medianet.oficinamovil.network;
 
 import android.content.BroadcastReceiver;
 import android.content.Context;

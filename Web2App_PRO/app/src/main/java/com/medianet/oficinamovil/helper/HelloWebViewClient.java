@@ -35,6 +35,41 @@ public class HelloWebViewClient extends WebViewClient {
             myHelper.loading();
         }
 
+        // ============================================================
+        // DETECCIÓN DE PAYPAL - ABRIR EN APP NATIVA O NAVEGADOR
+        // ============================================================
+        // Si la URL contiene PayPal, intentar abrir la app nativa primero
+        // Si no está instalada, abrir en el navegador como fallback
+        if (url.contains("paypal.com") || url.contains("sandbox.paypal.com") || url.contains("paypalobjects.com")) {
+            try {
+                // Crear intent para abrir la URL
+                Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+                
+                // Intentar abrir con la app de PayPal si está instalada
+                // Package name de la app oficial de PayPal
+                intent.setPackage("com.paypal.android.p2pmobile");
+                
+                // Verificar si la app de PayPal está instalada
+                PackageManager pm = activity.getPackageManager();
+                if (intent.resolveActivity(pm) != null) {
+                    // La app de PayPal está instalada, abrirla
+                    activity.startActivity(intent);
+                    android.util.Log.d("PayPal", "✅ Abriendo PayPal en app nativa: " + url);
+                } else {
+                    // La app de PayPal NO está instalada, abrir en navegador
+                    intent.setPackage(null); // Remover el package específico
+                    activity.startActivity(intent);
+                    android.util.Log.d("PayPal", "✅ App de PayPal no instalada, abriendo en navegador: " + url);
+                }
+                
+                return true; // Indica que manejamos la URL
+            } catch (Exception e) {
+                android.util.Log.e("PayPal", "❌ Error al abrir PayPal: " + e.getMessage());
+                // Si falla completamente, intentar cargar en el WebView
+                return false;
+            }
+        }
+
         if (url.startsWith("http")) return false;//open web links as usual
         //try to find browse activity to handle uri
         Uri parsedUri = Uri.parse(url);

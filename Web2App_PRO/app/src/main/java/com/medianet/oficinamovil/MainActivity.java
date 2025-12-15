@@ -179,6 +179,21 @@ public class MainActivity extends AppCompatActivity implements NetworkStateRecei
         webSettings.setEnableSmoothTransition(true);
         webSettings.setBlockNetworkLoads(false);
         webSettings.setJavaScriptCanOpenWindowsAutomatically(true);
+        
+        // ============================================================
+        // CONFIGURACIONES ADICIONALES PARA PAYPAL
+        // ============================================================
+        webSettings.setSupportMultipleWindows(true); // Permitir ventanas emergentes
+        webSettings.setDatabaseEnabled(true); // Habilitar base de datos
+        
+        // Permitir contenido mixto (HTTPS y HTTP) - necesario para algunos flujos de PayPal
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            webSettings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
+        }
+        
+        // User Agent personalizado para identificar la app
+        String userAgent = webSettings.getUserAgentString();
+        webSettings.setUserAgentString(userAgent + " FibexOficinaMovil/1.0");
 
         // clear old cache/history
         webView.clearCache(true);

@@ -1,5 +1,6 @@
 package com.medianet.oficinamovil;
 
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
@@ -13,11 +14,14 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.provider.MediaStore;
+import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
 import android.webkit.CookieManager;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
+import android.widget.Button;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -39,6 +43,9 @@ public class MainActivity extends AppCompatActivity implements NetworkStateRecei
     LottieAnimationView progress_loading;
     LinearLayout no_Internet;
     TextView nonetTitle, nonetDescription;
+    
+    // Error dialog references
+    private AlertDialog currentErrorDialog;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -239,6 +246,21 @@ public class MainActivity extends AppCompatActivity implements NetworkStateRecei
                     nonetDescription.setText("Error Reason:\n" + MyControl.LOAD_ERROR_REASON);
                 }
             }
+
+            @Override
+            public void networkErrorLoading() {
+                runOnUiThread(() -> showNetworkErrorDialog());
+            }
+
+            @Override
+            public void serverErrorLoading() {
+                // Server errors trigger automatic failover, no dialog needed here
+            }
+
+            @Override
+            public void maintenanceMode() {
+                runOnUiThread(() -> showMaintenanceDialog());
+            }
         });
 
         // Handle WebLoading
@@ -261,6 +283,15 @@ public class MainActivity extends AppCompatActivity implements NetworkStateRecei
 
             @Override
             public void errorLoading() { }
+
+            @Override
+            public void networkErrorLoading() { }
+
+            @Override
+            public void serverErrorLoading() { }
+
+            @Override
+            public void maintenanceMode() { }
         });
 
         // Check if opened from notification with custom URL
@@ -278,10 +309,22 @@ public class MainActivity extends AppCompatActivity implements NetworkStateRecei
     public void networkAvailable() {
         MyControl.NETWORK_AVAILABLE = true;
 
+        // Dismiss error dialog if it's open
+        if (currentErrorDialog != null && currentErrorDialog.isShowing()) {
+            currentErrorDialog.dismiss();
+        }
+
         if (!MyControl.FAILED_FOR_OTHER_REASON)
             no_Internet.setVisibility(View.GONE);
         else
             no_Internet.setVisibility(View.VISIBLE);
+
+        // Auto-retry WebView loading ONLY if the error was due to network issues
+        if (MyControl.IS_NETWORK_ERROR) {
+            android.util.Log.d("MainActivity", "🔄 Network restored - auto-retrying WebView");
+            MyControl.IS_NETWORK_ERROR = false;
+            retryWebViewLoad();
+        }
     }
 
     @Override
@@ -385,6 +428,109 @@ public class MainActivity extends AppCompatActivity implements NetworkStateRecei
         } else {
             webView.goBack();
         }
+    }
+
+    /**
+     * Show network error dialog with retry button
+     */
+    private void showNetworkErrorDialog() {
+        // Dismiss previous dialog if exists
+        if (currentErrorDialog != null && currentErrorDialog.isShowing()) {
+            currentErrorDialog.dismiss();
+        }
+
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        View dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_network_error, null);
+        builder.setView(dialogView);
+        
+        currentErrorDialog = builder.create();
+        currentErrorDialog.setCancelable(false);
+        
+        // Make dialog background transparent to show rounded corners
+        if (currentErrorDialog.getWindow() != null) {
+            currentErrorDialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
+        }
+
+        // Set up close button
+        ImageView btnClose = dialogView.findViewById(R.id.btn_close_dialog);
+        btnClose.setOnClickListener(v -> {
+            if (currentErrorDialog != null) {
+                currentErrorDialog.dismiss();
+            }
+        });
+
+        // Set up retry button
+        Button btnRetry = dialogView.findViewById(R.id.btn_retry);
+        btnRetry.setOnClickListener(v -> {
+            if (currentErrorDialog != null) {
+                currentErrorDialog.dismiss();
+            }
+            retryWebViewLoad();
+        });
+
+        currentErrorDialog.show();
+    }
+
+    /**
+     * Show maintenance mode dialog
+     */
+    private void showMaintenanceDialog() {
+        // Dismiss previous dialog if exists
+        if (currentErrorDialog != null && currentErrorDialog.isShowing()) {
+            currentErrorDialog.dismiss();
+        }
+
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        View dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_maintenance, null);
+        builder.setView(dialogView);
+        
+        currentErrorDialog = builder.create();
+        currentErrorDialog.setCancelable(false);
+        
+        // Make dialog background transparent to show rounded corners
+        if (currentErrorDialog.getWindow() != null) {
+            currentErrorDialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
+        }
+
+        // Set up close button
+        ImageView btnClose = dialogView.findViewById(R.id.btn_close_dialog);
+        btnClose.setOnClickListener(v -> {
+            if (currentErrorDialog != null) {
+                currentErrorDialog.dismiss();
+            }
+        });
+
+        // Set up OK button
+        Button btnOk = dialogView.findViewById(R.id.btn_ok);
+        btnOk.setOnClickListener(v -> {
+            if (currentErrorDialog != null) {
+                currentErrorDialog.dismiss();
+            }
+        });
+
+        currentErrorDialog.show();
+    }
+
+    /**
+     * Retry loading the WebView with appropriate URL
+     */
+    private void retryWebViewLoad() {
+        // Reset retry counter to start fresh
+        MyControl.URL_RETRY_COUNT = 0;
+        MyControl.IS_NETWORK_ERROR = false;
+        
+        // Determine which URL to load
+        String urlToLoad;
+        if (MyControl.CURRENT_URL != null && !MyControl.CURRENT_URL.isEmpty()) {
+            // Retry the last attempted URL
+            urlToLoad = MyControl.CURRENT_URL;
+        } else {
+            // Load the primary URL
+            urlToLoad = getString(R.string.Website_Link);
+        }
+        
+        android.util.Log.d("MainActivity", "🔄 Retrying WebView with URL: " + urlToLoad);
+        webView.loadUrl(urlToLoad);
     }
 
 } // Public Class End Here ==========================

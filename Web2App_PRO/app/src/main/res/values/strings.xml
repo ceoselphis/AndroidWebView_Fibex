@@ -1,8 +1,21 @@
 <resources>
     <string name="app_name">Fibex Telecom</string>
     <string name="Website_Link">
-        <!-- https://oficina2.fibextelecom.net/ -->
-        https://pf269175-8100.use2.devtunnels.ms/
+        https://oficina-falla.fibextelecom.net/
     </string>
+    <string name="Website_Link_Fallback">
+        https://oficina3.fibextelecom.net/
+    </string>
+
+    <!-- Error Dialog Strings -->
+    <string name="network_error_title">Error de Conexión</string>
+    <string name="network_error_message">No se pudo establecer conexión. Verifica tu conexión a Internet e intenta nuevamente.</string>
+    <string name="maintenance_title">Mantenimiento</string>
+    <string name="maintenance_message">Estamos realizando mantenimiento en nuestros servicios. Por favor, intenta de nuevo más tarde.</string>
+    
+    <!-- Button Labels -->
+    <string name="retry_button">Reintentar</string>
+    <string name="ok_button">Entendido</string>
+    <string name="close">Cerrar</string>
 
 </resources>

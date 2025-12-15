@@ -114,24 +114,63 @@ public class HelloWebViewClient extends WebViewClient {
     public void onReceivedError(WebView view, int errorCode, String description, String url) {
         MyControl.LOAD_ERROR_REASON = description;
 
-        if (MyControl.NETWORK_AVAILABLE) {
-            //We have network connection. So why failed? Lets catch it.
+        // Detect if this is a network error or server error based on error code
+        // Network error codes: -2 (HOST_LOOKUP), -6 (CONNECT), -7 (IO), -8 (TIMEOUT), -9 (REDIRECT_LOOP)
+        boolean isNetworkError = (errorCode == -2 || errorCode == -6 || errorCode == -7 || 
+                                  errorCode == -8 || errorCode == -9);
+
+        android.util.Log.d("WebViewError", "Error Code: " + errorCode + ", Description: " + description + 
+                          ", URL: " + url + ", IsNetworkError: " + isNetworkError);
+
+        if (isNetworkError || !MyControl.NETWORK_AVAILABLE) {
+            // This is a NETWORK ERROR - no internet connection
+            MyControl.IS_NETWORK_ERROR = true;
+            MyControl.FAILED_FOR_OTHER_REASON = false;
+            android.util.Log.d("WebViewError", "❌ Network error detected");
+            
+            if (myHelper != null) {
+                myHelper.networkErrorLoading();
+            }
+        } else {
+            // This is a SERVER/URL ERROR - internet is available but URL failed to load
+            MyControl.IS_NETWORK_ERROR = false;
             MyControl.FAILED_FOR_OTHER_REASON = true;
+            
+            android.util.Log.d("WebViewError", "❌ Server error detected, retry count: " + MyControl.URL_RETRY_COUNT);
 
+            // Attempt URL failover: oficina2 -> oficina3
+            if (MyControl.URL_RETRY_COUNT < MyControl.MAX_RETRY_ATTEMPTS) {
+                MyControl.URL_RETRY_COUNT++;
+                
+                // Try the fallback URL
+                String fallbackUrl = view.getContext().getString(com.medianet.oficinamovil.R.string.Website_Link_Fallback);
+                android.util.Log.d("WebViewError", "🔄 Attempting fallback URL: " + fallbackUrl);
+                
+                MyControl.CURRENT_URL = fallbackUrl;
+                view.loadUrl(fallbackUrl);
+                
+            } else {
+                // Both URLs failed - show maintenance mode
+                android.util.Log.d("WebViewError", "❌ Both URLs failed - entering maintenance mode");
+                
+                if (myHelper != null) {
+                    myHelper.maintenanceMode();
+                }
+            }
         }
-        myHelper.errorLoading();
-
     }
 
     @Override
     public void onPageFinished(WebView view, String url) {
         // do your stuff here
-
+        android.util.Log.d("WebViewError", "✅ Page loaded successfully: " + url);
     }
 
     @Override
     public void onPageStarted(WebView view, String url, Bitmap favicon) {
         super.onPageStarted(view, url, favicon);
         MyControl.FAILED_FOR_OTHER_REASON = false;
+        MyControl.CURRENT_URL = url;
+        android.util.Log.d("WebViewError", "🔄 Loading started: " + url);
     }
 } // HelloWebViewClient end here ======================

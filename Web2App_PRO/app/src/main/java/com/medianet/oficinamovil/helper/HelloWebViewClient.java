@@ -36,39 +36,12 @@ public class HelloWebViewClient extends WebViewClient {
         }
 
         // ============================================================
-        // DETECCIÓN DE PAYPAL - ABRIR EN APP NATIVA O NAVEGADOR
+        // DETECCIÓN DE PAYPAL - ELIMINADO PARA PERMITIR POPUP INTERNO
         // ============================================================
-        // Si la URL contiene PayPal, intentar abrir la app nativa primero
-        // Si no está instalada, abrir en el navegador como fallback
-        if (url.contains("paypal.com") || url.contains("sandbox.paypal.com") || url.contains("paypalobjects.com")) {
-            try {
-                // Crear intent para abrir la URL
-                Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
-                
-                // Intentar abrir con la app de PayPal si está instalada
-                // Package name de la app oficial de PayPal
-                intent.setPackage("com.paypal.android.p2pmobile");
-                
-                // Verificar si la app de PayPal está instalada
-                PackageManager pm = activity.getPackageManager();
-                if (intent.resolveActivity(pm) != null) {
-                    // La app de PayPal está instalada, abrirla
-                    activity.startActivity(intent);
-                    android.util.Log.d("PayPal", "✅ Abriendo PayPal en app nativa: " + url);
-                } else {
-                    // La app de PayPal NO está instalada, abrir en navegador
-                    intent.setPackage(null); // Remover el package específico
-                    activity.startActivity(intent);
-                    android.util.Log.d("PayPal", "✅ App de PayPal no instalada, abriendo en navegador: " + url);
-                }
-                
-                return true; // Indica que manejamos la URL
-            } catch (Exception e) {
-                android.util.Log.e("PayPal", "❌ Error al abrir PayPal: " + e.getMessage());
-                // Si falla completamente, intentar cargar en el WebView
-                return false;
-            }
-        }
+        // Anteriormente se forzaba abrir la app de PayPal o el navegador externa.
+        // Se ha comentado/eliminado para permitir que la lógica de onCreateWindow
+        // en ChromeClient maneje la ventana emergente DENTRO de la app.
+
 
         if (url.startsWith("http")) return false;//open web links as usual
         //try to find browse activity to handle uri
@@ -114,63 +87,101 @@ public class HelloWebViewClient extends WebViewClient {
     public void onReceivedError(WebView view, int errorCode, String description, String url) {
         MyControl.LOAD_ERROR_REASON = description;
 
-        // Detect if this is a network error or server error based on error code
-        // Network error codes: -2 (HOST_LOOKUP), -6 (CONNECT), -7 (IO), -8 (TIMEOUT), -9 (REDIRECT_LOOP)
-        boolean isNetworkError = (errorCode == -2 || errorCode == -6 || errorCode == -7 || 
-                                  errorCode == -8 || errorCode == -9);
+        android.util.Log.d("WebViewError", "❌ Error Code: " + errorCode + ", Description: " + description + 
+                          ", URL: " + url + ", Network Available: " + MyControl.NETWORK_AVAILABLE);
 
-        android.util.Log.d("WebViewError", "Error Code: " + errorCode + ", Description: " + description + 
-                          ", URL: " + url + ", IsNetworkError: " + isNetworkError);
-
-        if (isNetworkError || !MyControl.NETWORK_AVAILABLE) {
-            // This is a NETWORK ERROR - no internet connection
+        // CRITICAL: Only show network error when there is ACTUALLY no internet connection
+        // If we have internet, ANY error should trigger URL failover, not network error
+        if (!MyControl.NETWORK_AVAILABLE) {
+            // NO INTERNET CONNECTION - Show network error dialog
             MyControl.IS_NETWORK_ERROR = true;
             MyControl.FAILED_FOR_OTHER_REASON = false;
-            android.util.Log.d("WebViewError", "❌ Network error detected");
+            android.util.Log.d("WebViewError", "❌ No internet connection - showing network error");
             
             if (myHelper != null) {
                 myHelper.networkErrorLoading();
             }
         } else {
-            // This is a SERVER/URL ERROR - internet is available but URL failed to load
+            // INTERNET IS AVAILABLE - This is a URL/SERVER ERROR
             MyControl.IS_NETWORK_ERROR = false;
             MyControl.FAILED_FOR_OTHER_REASON = true;
             
-            android.util.Log.d("WebViewError", "❌ Server error detected, retry count: " + MyControl.URL_RETRY_COUNT);
+            // Get URLs to compare
+            String primaryUrl = view.getContext().getString(com.medianet.oficinamovil.R.string.Website_Link).trim();
+            String fallbackUrl = view.getContext().getString(com.medianet.oficinamovil.R.string.Website_Link_Fallback).trim();
+            
+            android.util.Log.d("WebViewError", "🔍 Primary URL: " + primaryUrl);
+            android.util.Log.d("WebViewError", "🔍 Fallback URL: " + fallbackUrl);
+            android.util.Log.d("WebViewError", "🔍 Failed URL: " + url);
 
-            // Attempt URL failover: oficina2 -> oficina3
-            if (MyControl.URL_RETRY_COUNT < MyControl.MAX_RETRY_ATTEMPTS) {
-                MyControl.URL_RETRY_COUNT++;
+            // Comparar URLs para evitar bucles, ignorando query params o diferencias menores
+            boolean isO2 = url.contains("oficina2-falla.fibextelecom.net");
+            boolean isO3 = url.contains("oficina3.fibextelecom.net");
+            
+            if (isO2) {
+                // Primary URL failed - try fallback
+                android.util.Log.d("WebViewError", "🔄 Primary URL (oficina2) failed - switching to fallback (oficina3)");
                 
-                // Try the fallback URL
-                String fallbackUrl = view.getContext().getString(com.medianet.oficinamovil.R.string.Website_Link_Fallback);
-                android.util.Log.d("WebViewError", "🔄 Attempting fallback URL: " + fallbackUrl);
+                // Show error message before switching
+                if (myHelper != null) {
+                    myHelper.serverErrorLoading();
+                }
                 
                 MyControl.CURRENT_URL = fallbackUrl;
                 view.loadUrl(fallbackUrl);
                 
-            } else {
-                // Both URLs failed - show maintenance mode
-                android.util.Log.d("WebViewError", "❌ Both URLs failed - entering maintenance mode");
+            } else if (isO3) {
+                // Fallback URL also failed - show maintenance
+                android.util.Log.d("WebViewError", "❌ Fallback URL (oficina3) also failed - showing maintenance");
                 
                 if (myHelper != null) {
                     myHelper.maintenanceMode();
                 }
+            } else {
+                // Unknown URL failed - try fallback as default
+                android.util.Log.d("WebViewError", "⚠️ Unknown URL failed - trying fallback");
+                
+                // Show error message before switching
+                if (myHelper != null) {
+                    myHelper.serverErrorLoading();
+                }
+                
+                MyControl.CURRENT_URL = fallbackUrl;
+                view.loadUrl(fallbackUrl);
             }
         }
     }
 
     @Override
     public void onPageFinished(WebView view, String url) {
-        // do your stuff here
-        android.util.Log.d("WebViewError", "✅ Page loaded successfully: " + url);
+        // CRITICAL: Only hide loading overlay (calling pageFinished) if NO ERROR occurred.
+        // This prevents showing the default browser error page (white screen/dino).
+        if (!MyControl.FAILED_FOR_OTHER_REASON && !MyControl.IS_NETWORK_ERROR) {
+            android.util.Log.d("WebViewError", "✅ Page loaded successfully: " + url);
+            if (myHelper != null) {
+                myHelper.pageFinished();
+            }
+        } else {
+            android.util.Log.d("WebViewError", "⚠️ onPageFinished called but error flag is TRUE. Keeping overlay visible to hide browser error page.");
+            // We do NOT call pageFinished(), so the custom loading overlay stays visible 
+            // covering the ugly browser error page.
+        }
     }
 
     @Override
     public void onPageStarted(WebView view, String url, Bitmap favicon) {
         super.onPageStarted(view, url, favicon);
+        // Reset flags at the start of a NEW load attempt
         MyControl.FAILED_FOR_OTHER_REASON = false;
+        
+        // Note: We don't reset IS_NETWORK_ERROR here because it depends on the actual connection state
+        // checked in onReceivedError, but we assume it's a fresh attempt.
+        
         MyControl.CURRENT_URL = url;
         android.util.Log.d("WebViewError", "🔄 Loading started: " + url);
+        
+        if (myHelper != null) {
+            myHelper.pageStarted();
+        }
     }
 } // HelloWebViewClient end here ======================

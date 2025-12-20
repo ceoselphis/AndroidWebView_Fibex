@@ -19,11 +19,10 @@ public class MyControl {
     public static boolean NETWORK_AVAILABLE = true;
     public static boolean FAILED_FOR_OTHER_REASON = false;
 
-    // URL Failover Management
-    public static int URL_RETRY_COUNT = 0;
+    // Error state tracking
     public static boolean IS_NETWORK_ERROR = false;
     public static String CURRENT_URL = "";
-    public static final int MAX_RETRY_ATTEMPTS = 1; // Try primary, then fallback once
+    // Note: We removed URL_RETRY_COUNT - now using URL detection instead
 
 
 } // MyControl End Here =========

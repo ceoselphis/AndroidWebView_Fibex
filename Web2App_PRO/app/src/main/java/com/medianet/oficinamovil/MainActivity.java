@@ -46,6 +46,13 @@ public class MainActivity extends AppCompatActivity implements NetworkStateRecei
     
     // Error dialog references
     private AlertDialog currentErrorDialog;
+    
+    // WebView Loading Overlay components
+    private LinearLayout webviewLoadingOverlay;
+    private LinearLayout errorMessageContainer;
+    private TextView errorMessageText;
+    private com.airbnb.lottie.LottieAnimationView loadingAnimation;
+    private TextView loadingText;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -61,6 +68,13 @@ public class MainActivity extends AppCompatActivity implements NetworkStateRecei
         no_Internet = findViewById(R.id.No_Internet);
         nonetTitle = findViewById(R.id.nonetTitle);
         nonetDescription = findViewById(R.id.nonetDescription);
+        
+        // WebView Loading Overlay
+        webviewLoadingOverlay = findViewById(R.id.webview_loading_overlay);
+        errorMessageContainer = findViewById(R.id.error_message_container);
+        errorMessageText = findViewById(R.id.error_message_text);
+        loadingAnimation = findViewById(R.id.loading_animation);
+        loadingText = findViewById(R.id.loading_text);
 
         // IMPORTANTE: Ocultar el WebView completamente al inicio
         // Esto evita que CUALQUIER cosa se sobreponga al diálogo de permisos
@@ -254,12 +268,24 @@ public class MainActivity extends AppCompatActivity implements NetworkStateRecei
 
             @Override
             public void serverErrorLoading() {
-                // Server errors trigger automatic failover, no dialog needed here
+                // Server errors trigger automatic failover
+                // Show error message on loading overlay before switching
+                runOnUiThread(() -> showLoadingError("Conectando al servidor alternativo..."));
             }
 
             @Override
             public void maintenanceMode() {
                 runOnUiThread(() -> showMaintenanceDialog());
+            }
+
+            @Override
+            public void pageStarted() {
+                runOnUiThread(() -> showLoadingOverlay());
+            }
+
+            @Override
+            public void pageFinished() {
+                runOnUiThread(() -> hideLoadingOverlay());
             }
         });
 
@@ -292,6 +318,12 @@ public class MainActivity extends AppCompatActivity implements NetworkStateRecei
 
             @Override
             public void maintenanceMode() { }
+
+            @Override
+            public void pageStarted() { }
+
+            @Override
+            public void pageFinished() { }
         });
 
         // Check if opened from notification with custom URL
@@ -515,8 +547,7 @@ public class MainActivity extends AppCompatActivity implements NetworkStateRecei
      * Retry loading the WebView with appropriate URL
      */
     private void retryWebViewLoad() {
-        // Reset retry counter to start fresh
-        MyControl.URL_RETRY_COUNT = 0;
+        // Reset error state
         MyControl.IS_NETWORK_ERROR = false;
         
         // Determine which URL to load
@@ -532,5 +563,77 @@ public class MainActivity extends AppCompatActivity implements NetworkStateRecei
         android.util.Log.d("MainActivity", "🔄 Retrying WebView with URL: " + urlToLoad);
         webView.loadUrl(urlToLoad);
     }
+
+    /**
+     * Show loading overlay (hides WebView to prevent showing browser error page)
+     */
+    private void showLoadingOverlay() {
+        webviewLoadingOverlay.setVisibility(View.VISIBLE);
+        webView.setVisibility(View.GONE);
+        errorMessageContainer.setVisibility(View.GONE);
+        loadingAnimation.setVisibility(View.VISIBLE);
+        loadingText.setVisibility(View.VISIBLE);
+        loadingText.setText("Cargando...");
+    }
+
+    /**
+     * Hide loading overlay and show WebView (page loaded successfully)
+     */
+    private void hideLoadingOverlay() {
+        webviewLoadingOverlay.setVisibility(View.GONE);
+        webView.setVisibility(View.VISIBLE);
+    }
+
+    /**
+     * Show error message on loading overlay before failover
+     */
+    private void showLoadingError(String message) {
+        webviewLoadingOverlay.setVisibility(View.VISIBLE);
+        webView.setVisibility(View.GONE);
+        
+        // Hide loading animation and text
+        loadingAnimation.setVisibility(View.GONE);
+        loadingText.setVisibility(View.GONE);
+        
+        // Show error message with warning icon
+        errorMessageContainer.setVisibility(View.VISIBLE);
+        errorMessageText.setText(message);
+        
+        // Auto-hide after 2 seconds (failover will happen)
+        new Handler().postDelayed(() -> {
+            errorMessageContainer.setVisibility(View.GONE);
+            loadingAnimation.setVisibility(View.VISIBLE);
+            loadingText.setVisibility(View.VISIBLE);
+        }, 2000);
+    }
+
+    // =========================================================================
+    // DEBUG: TOUCH URL DEBUGGER (Triple tap to see current URL)
+    // Cooment this lines to disable this feature
+    // =========================================================================
+    // private int debugClicks = 0;
+    // private long debugLastClickTime = 0;
+
+    // @Override
+    // public boolean dispatchTouchEvent(MotionEvent ev) {
+    //     if (ev.getAction() == MotionEvent.ACTION_DOWN) {
+    //         long currentTime = System.currentTimeMillis();
+    //         if (currentTime - debugLastClickTime < 500) {
+    //             debugClicks++;
+    //         } else {
+    //             debugClicks = 1;
+    //         }
+    //         debugLastClickTime = currentTime;
+
+    //         if (debugClicks >= 3) {
+    //             String currentUrl = webView.getUrl();
+    //             String msg = "Current URL: " + (currentUrl != null ? currentUrl : "Null");
+    //             Toast.makeText(this, msg, Toast.LENGTH_LONG).show();
+    //             debugClicks = 0;
+    //         }
+    //     }
+    //     return super.dispatchTouchEvent(ev);
+    // }
+    // =========================================================================
 
 } // Public Class End Here ==========================

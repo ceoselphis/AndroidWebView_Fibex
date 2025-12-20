@@ -1,7 +1,7 @@
 <resources>
     <string name="app_name">Fibex Telecom</string>
     <string name="Website_Link">
-        https://oficina-falla.fibextelecom.net/
+        https://oficina2-falla.fibextelecom.net/
     </string>
     <string name="Website_Link_Fallback">
         https://oficina3.fibextelecom.net/

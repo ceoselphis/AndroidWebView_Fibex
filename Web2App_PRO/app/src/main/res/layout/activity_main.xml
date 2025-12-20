@@ -34,4 +34,7 @@
         <include layout="@layout/no_internet"/>
     </LinearLayout>
 
+    <!-- WebView Loading Overlay (custom loading screen) -->
+    <include layout="@layout/webview_loading_overlay"/>
+
 </RelativeLayout>

@@ -12,5 +12,9 @@ public interface MyHelper {
     void networkErrorLoading();
     void serverErrorLoading();
     void maintenanceMode();
+    
+    // Page loading callbacks
+    void pageStarted();
+    void pageFinished();
 
 } // myHelper End Here ===========

@@ -99,44 +99,68 @@ public class ChromeClient extends WebChromeClient {
     // ============================================================
     @Override
     public boolean onCreateWindow(WebView view, boolean isDialog, boolean isUserGesture, android.os.Message resultMsg) {
-        // Este método se llama cuando PayPal intenta abrir una ventana emergente
-        // Creamos un WebView temporal para capturar la URL y luego abrirla en la app nativa o navegador
+        // Crear un nuevo WebView para el popup (interno en la app)
+        final WebView newWebView = new WebView(activity);
         
-        WebView newWebView = new WebView(activity);
+        // Configuraciones necesarias para que funcione PayPal y otras webs modernas
+        android.webkit.WebSettings webSettings = newWebView.getSettings();
+        webSettings.setJavaScriptEnabled(true);
+        webSettings.setDomStorageEnabled(true);
+        webSettings.setSupportMultipleWindows(true); 
+        webSettings.setJavaScriptCanOpenWindowsAutomatically(true);
+        webSettings.setDatabaseEnabled(true);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            webSettings.setMixedContentMode(android.webkit.WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
+        }
+        
+        // Usar UserAgent del WebView padre si es posible, o el default
+        if (view != null && view.getSettings() != null) {
+            webSettings.setUserAgentString(view.getSettings().getUserAgentString());
+        }
+
+        // Crear un Dialog de pantalla completa para mostrar el WebView
+        final android.app.Dialog dialog = new android.app.Dialog(activity, android.R.style.Theme_Light_NoTitleBar_Fullscreen);
+        dialog.setContentView(newWebView);
+        dialog.setCancelable(true); // Permitir cerrar con BACK
+        dialog.setOnCancelListener(d -> {
+            newWebView.destroy();
+        });
+        dialog.show();
+
+        // WebChromeClient para manejar el cierre de la ventana (window.close())
+        newWebView.setWebChromeClient(new WebChromeClient() {
+            @Override
+            public void onCloseWindow(WebView window) {
+                if (dialog != null && dialog.isShowing()) {
+                    dialog.dismiss();
+                }
+                if (window != null) {
+                    window.destroy();
+                }
+            }
+        });
+
+        // WebViewClient para mantener la navegación dentro de este popup
         newWebView.setWebViewClient(new android.webkit.WebViewClient() {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, String url) {
-                // Cuando tengamos la URL, intentar abrirla en la app nativa de PayPal
-                try {
-                    Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
-                    
-                    // Intentar abrir con la app de PayPal si está instalada
-                    intent.setPackage("com.paypal.android.p2pmobile");
-                    
-                    PackageManager pm = activity.getPackageManager();
-                    if (intent.resolveActivity(pm) != null) {
-                        // La app de PayPal está instalada
-                        activity.startActivity(intent);
-                        android.util.Log.d("PayPal", "✅ Popup de PayPal abierto en app nativa: " + url);
-                    } else {
-                        // La app NO está instalada, abrir en navegador
-                        intent.setPackage(null);
-                        activity.startActivity(intent);
-                        android.util.Log.d("PayPal", "✅ Popup de PayPal abierto en navegador: " + url);
-                    }
-                } catch (Exception e) {
-                    android.util.Log.e("PayPal", "❌ Error al abrir popup de PayPal: " + e.getMessage());
+                // Verificar si es un esquema especial (mailto, tel, whatsapp, etc.) y sacarlo fuera
+                if (url.startsWith("mailto:") || url.startsWith("tel:") || url.startsWith("whatsapp:")) {
+                     Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+                     activity.startActivity(intent);
+                     return true;
                 }
-                return true;
+                // Para HTTP/HTTPS (PayPal), cargar dentro del mismo WebView popup
+                return false; 
             }
         });
-        
-        // Configurar el transporte para el nuevo WebView
+
+        // Transportar el evento al nuevo WebView
         WebView.WebViewTransport transport = (WebView.WebViewTransport) resultMsg.obj;
         transport.setWebView(newWebView);
         resultMsg.sendToTarget();
-        
-        android.util.Log.d("PayPal", "✅ onCreateWindow llamado - Preparando para abrir popup");
+
+        android.util.Log.d("PayPal", "✅ Popup WebView creado y mostrado en Dialog interno");
         return true;
     }
 

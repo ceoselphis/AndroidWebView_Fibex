@@ -115,7 +115,7 @@ public class HelloWebViewClient extends WebViewClient {
             android.util.Log.d("WebViewError", "🔍 Failed URL: " + url);
 
             // Comparar URLs para evitar bucles, ignorando query params o diferencias menores
-            boolean isO2 = url.contains("oficina2-falla.fibextelecom.net");
+            boolean isO2 = url.contains("oficina2.fibextelecom.net");
             boolean isO3 = url.contains("oficina3.fibextelecom.net");
             
             if (isO2) {
